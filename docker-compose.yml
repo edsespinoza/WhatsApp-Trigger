@@ -1,0 +1,188 @@
+services:
+
+  # ─── Web Server ───────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+  # ─── Laravel (PHP-FPM) ────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - ./:/var/www/html
+      # Volumes nomeados sobrepõem o bind mount do Windows nesses caminhos.
+      # vendor e bootstrap/cache ficam no filesystem Linux nativo → elimina lentidão.
+      - vendor_data:/var/www/html/vendor
+      - bootstrap_cache:/var/www/html/bootstrap/cache
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      WHATSAPP_API_URL: http://evolution-api:8080
+      QUEUE_CONNECTION: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - whatstrigger
+
+  # ─── Queue Worker ─────────────────────────────────────────────────────────────
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - bootstrap_cache:/var/www/html/bootstrap/cache
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+  # ─── Scheduler (cron do Laravel) ──────────────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    # Executa `schedule:run` a cada 60s — equivalente a "* * * * *" no crontab
+    command: >
+      sh -c "while true;
+             do php artisan schedule:run --verbose --no-interaction;
+             sleep 60;
+             done"
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - bootstrap_cache:/var/www/html/bootstrap/cache
+    env_file: .env
+    environment:
+      DB_HOST: mysql
+      REDIS_HOST: redis
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+  # ─── MySQL ────────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Scripts .sql neste diretório rodam automaticamente na primeira inicialização
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+  # ─── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+  # ─── Evolution API (conector WhatsApp) ────────────────────────────────────────
+  evolution-api:
+    image: atendai/evolution-api:latest
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      CORS_ORIGIN: "*"
+      CORS_METHODS: GET,POST,PUT,DELETE
+      CORS_CREDENTIALS: "true"
+
+      LOG_LEVEL: ERROR
+      LOG_COLOR: "true"
+      LOG_BAILEYS: error
+
+      # Banco de dados da Evolution API (MySQL compartilhado, banco separado)
+      DATABASE_PROVIDER: mysql
+      DATABASE_CONNECTION_URI: "mysql://whatstrigger:secret@mysql:3306/evolution"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_TTL: "604800"
+
+      RABBITMQ_ENABLED: "false"
+
+      # Identificação do cliente no WhatsApp
+      CONFIG_SESSION_PHONE_CLIENT: WhatsTrigger
+      CONFIG_SESSION_PHONE_NAME: Chrome
+
+      QRCODE_LIMIT: 30
+
+      # Autenticação da API
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${WHATSAPP_API_KEY}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+
+      # Webhook para receber eventos de entrega no Laravel
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      WEBHOOK_GLOBAL_URL: ""
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    depends_on:
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - whatstrigger
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  mysql_data:
+  redis_data:
+  evolution_instances:
+  evolution_store:
+  # vendor e bootstrap/cache vivem em filesystem Linux nativo (não bind mount Windows)
+  vendor_data:
+  bootstrap_cache:
+
+# ─── Rede interna ─────────────────────────────────────────────────────────────
+networks:
+  whatstrigger:
+    driver: bridge
