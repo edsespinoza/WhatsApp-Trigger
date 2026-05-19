@@ -17,6 +17,8 @@
       resume       Sai do modo manutenção: reinicia app/nginx/queue/scheduler
       build        Rebuild da imagem PHP (usar após composer require/update)
       cache-clear  Limpa e reconstrói config/route/view cache do Laravel
+      backup       Backup manual do MySQL (dump + gpg)
+      restore      Restaurar backup MySQL: .\manage.ps1 restore .\backups\arquivo.sql
 .EXAMPLE
     .\manage.ps1 start
     .\manage.ps1 test
@@ -25,7 +27,7 @@
 
 param(
     [Parameter(Position=0, Mandatory=$true)]
-    [ValidateSet("start","stop","restart","status","logs","test","shell","migrate","fresh","tinker","maintenance","resume","build","cache-clear")]
+    [ValidateSet("start","stop","restart","status","logs","test","shell","migrate","fresh","tinker","maintenance","resume","build","cache-clear","backup","restore")]
     [string]$Command
 )
 
@@ -173,5 +175,50 @@ switch ($Command) {
         Show-Status
         Write-Host "Aplicacao disponivel em: http://localhost" -ForegroundColor Yellow
         Show-Credentials
+    }
+
+    "backup" {
+        $backupDir = "$PSScriptRoot\backups"
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $containerDump = "/tmp/whatstrigger_$timestamp.sql"
+        $localFile = "$backupDir\whatstrigger_$timestamp.sql"
+
+        Write-Host "Gerando dump dentro do container mysql..." -ForegroundColor Cyan
+        & docker compose exec -T mysql mysqldump -uwhatstrigger -psecret --single-transaction --routines --triggers --result-file="$containerDump" whatstrigger 2>&1 | Out-Null
+
+        Write-Host "Copiando para o host..." -ForegroundColor Cyan
+        & docker compose cp "mysql:$containerDump" "$localFile" 2>&1 | Out-Null
+        & docker compose exec -T mysql rm -f "$containerDump" 2>&1 | Out-Null
+
+        if ((Test-Path $localFile) -and ((Get-Item $localFile).Length -gt 0)) {
+            $size = [math]::Round((Get-Item $localFile).Length / 1MB, 2)
+            Write-Host "Backup concluido: $localFile ($size MB)" -ForegroundColor Green
+        } else {
+            Write-Host "ERRO: Falha ao gerar backup." -ForegroundColor Red
+        }
+    }
+
+    "restore" {
+        $path = $args[0]
+        if (-not $path -or -not (Test-Path $path)) {
+            Write-Host "Uso: .\manage.ps1 restore <caminho\arquivo.sql>" -ForegroundColor Yellow
+            return
+        }
+        $filename = Split-Path $path -Leaf
+        $containerPath = "/tmp/$filename"
+
+        Write-Host "Copiando dump para o container mysql..." -ForegroundColor Cyan
+        & docker compose cp "$path" "mysql:$containerPath" 2>&1 | Out-Null
+
+        Write-Host "Restaurando banco..." -ForegroundColor Cyan
+        & docker compose exec -T mysql sh -c "mysql -uwhatstrigger -psecret whatstrigger < $containerPath" 2>&1
+        & docker compose exec -T mysql rm -f "$containerPath" 2>&1 | Out-Null
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Banco restaurado com sucesso." -ForegroundColor Green
+        } else {
+            Write-Host "ERRO: Falha ao restaurar." -ForegroundColor Red
+        }
     }
 }

@@ -1,6 +1,6 @@
 # WhatsTrigger — Registro de Trabalho
 
-**Última atualização:** 19/05/2026 — 16:25
+**Última atualização:** 19/05/2026 — 17:00
 
 > **Problema crítico resolvido:** Login não funcionava porque o banco não tinha usuários — o seeder nunca foi executado. `manage.ps1 start` agora roda `migrate --force` + `db:seed --force` automaticamente na subida.
 
@@ -33,7 +33,9 @@ Projeto funcional em Docker. **72 testes passando (130 asserções).**
 
 #### Segurança
 - [ ] Secrets management — mover chaves de API para cofre (ex: chave Evolution API, Stripe)
-- [ ] Backup automático do MySQL criptografado (dump + gpg + envio S3/SCP)
+- [x] Backup automático do MySQL (scripts/backup.sh + manage.ps1 backup/restore)
+- [ ] Criptografar backups com GPG (scripts/backup.sh já suporta via DB_BACKUP_PASSPHRASE)
+- [ ] Envio de backups para S3/SCP (pós-processamento)
 - [x] Content-Security-Policy headers no middleware SecurityHeaders
 - [ ] Log de auditoria para operações sensíveis (excluir contato, cancelar campanha, upgrade assinatura)
 

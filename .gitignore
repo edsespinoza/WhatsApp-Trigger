@@ -27,3 +27,5 @@ apres_.md
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+/backups/*.sql*
