@@ -1,6 +1,8 @@
 # WhatsTrigger — Registro de Trabalho
 
-**Última atualização:** 19/05/2026
+**Última atualização:** 19/05/2026 — 16:25
+
+> **Problema crítico resolvido:** Login não funcionava porque o banco não tinha usuários — o seeder nunca foi executado. `manage.ps1 start` agora roda `migrate --force` + `db:seed --force` automaticamente na subida.
 
 ---
 
@@ -37,4 +39,6 @@ Projeto funcional em Docker. **72 testes passando (130 asserções).**
 - [ ] Cache Redis para consultas frequentes
 - [x] Testes de unidade para os Services (EvolutionApiService — 10 testes)
 - [ ] Testes de unidade para StripeService (mockar SDK Stripe)
+- [x] Efeito visual SGW Pro na tela de login (ondas azuis animadas + barra de progresso no botão)
+- [x] Fix login: `manage.ps1 start` agora migra+seeda automaticamente
 - [ ] Swagger / OpenAPI docs dos endpoints

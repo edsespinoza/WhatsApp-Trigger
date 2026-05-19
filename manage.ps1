@@ -69,6 +69,9 @@ switch ($Command) {
         Invoke-Compose @("up", "-d")
         Start-Sleep -Seconds 3
         Show-Status
+        Write-Host "Executando migrations e seed..." -ForegroundColor Cyan
+        Invoke-Compose @("exec", "-T", "app", "php", "artisan", "migrate", "--force")
+        Invoke-Compose @("exec", "-T", "app", "php", "artisan", "db:seed", "--force")
         Write-Host "Aplicacao disponivel em: http://localhost" -ForegroundColor Yellow
         Write-Host "Evolution API:           http://localhost:8080" -ForegroundColor Yellow
         Show-Credentials
