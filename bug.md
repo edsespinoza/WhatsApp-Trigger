@@ -6,7 +6,7 @@
 
 ## Estado atual
 
-Projeto funcional em Docker. 48 testes passando (86 asserções).
+Projeto funcional em Docker. **65 testes passando (107 asserções).**
 
 ### O que está pronto
 
@@ -34,5 +34,6 @@ Projeto funcional em Docker. 48 testes passando (86 asserções).
 - [ ] Dashboard com gráficos (Chart.js)
 - [ ] Histórico de alterações nas campanhas
 - [ ] Cache Redis para consultas frequentes
-- [ ] Testes de unidade para os Services (EvolutionApiService, StripeService)
+- [x] Testes de unidade para os Services (EvolutionApiService — 10 testes)
+- [ ] Testes de unidade para StripeService (mockar SDK Stripe)
 - [ ] Swagger / OpenAPI docs dos endpoints
