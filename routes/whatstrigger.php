@@ -8,6 +8,8 @@ use App\Http\Controllers\WhatsTrigger\SubscriptionController;
 use App\Http\Controllers\WhatsTrigger\WebhookController;
 use App\Http\Controllers\WhatsTrigger\WhatsAppController;
 use App\Http\Middleware\VerifyEvolutionWebhook;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
 
 // Registrar em routes/api.php:
@@ -15,6 +17,30 @@ use Illuminate\Support\Facades\Route;
 
 // Prefixo de nome 'wt.api.' evita conflito com as rotas web que usam 'wt.'
 Route::prefix('whatstrigger')->name('wt.api.')->group(function () {
+
+    // ── Health Check (sem autenticação) ───────────────────────────────────────
+    Route::get('health', function () {
+        $db = false;
+        $redis = false;
+
+        try {
+            DB::select('SELECT 1');
+            $db = true;
+        } catch (Throwable) {
+        }
+
+        try {
+            Redis::connection()->ping();
+            $redis = true;
+        } catch (Throwable) {
+        }
+
+        return response()->json([
+            'status' => ($db && $redis) ? 'healthy' : 'degraded',
+            'services' => compact('db', 'redis'),
+            'app' => config('app.env'),
+        ]);
+    });
 
     // ── Autenticação ──────────────────────────────────────────────────────────
     Route::post('login', [AuthController::class, 'login'])
@@ -30,8 +56,10 @@ Route::prefix('whatstrigger')->name('wt.api.')->group(function () {
 
         // ── Campanhas ─────────────────────────────────────────────────────────
         Route::apiResource('campaigns', CampaignController::class);
-        Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send']);
-        Route::post('campaigns/{campaign}/cancel', [CampaignController::class, 'cancel']);
+        Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send'])
+            ->middleware('throttle:10,1');
+        Route::post('campaigns/{campaign}/cancel', [CampaignController::class, 'cancel'])
+            ->middleware('throttle:10,1');
 
         // ── Relatórios ────────────────────────────────────────────────────────
         Route::get('campaigns/{campaign}/report', [ReportController::class, 'campaign']);

@@ -9,17 +9,17 @@ use Stripe\Webhook;
 
 class StripeService
 {
-    private string $secretKey;
+    private string $secretKey = '';
 
-    private string $webhookSecret;
+    private string $webhookSecret = '';
 
-    private string $priceId;
+    private string $priceId = '';
 
     public function __construct()
     {
-        $this->secretKey = config('services.stripe.secret_key');
-        $this->webhookSecret = config('services.stripe.webhook_secret');
-        $this->priceId = config('services.stripe.price_id');
+        $this->secretKey = config('services.stripe.secret_key') ?? '';
+        $this->webhookSecret = config('services.stripe.webhook_secret') ?? '';
+        $this->priceId = config('services.stripe.price_id') ?? '';
     }
 
     public function isConfigured(): bool

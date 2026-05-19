@@ -1,5 +1,8 @@
 # AGENTS.md — WhatsTrigger
 
+- **Git remote:** `https://github.com/edsespinoza/WhatsApp-Trigger.git`
+- **Branch:** `master`
+
 Referência compacta para sessões OpenCode. Leia `CLAUDE.md` para contexto de negócio, arquitetura completa e stack.
 
 ---
