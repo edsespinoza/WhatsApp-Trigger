@@ -31,6 +31,13 @@ Projeto funcional em Docker. **72 testes passando (130 asserções).**
 
 ### Pendências / Melhorias futuras
 
+#### Segurança
+- [ ] Secrets management — mover chaves de API para cofre (ex: chave Evolution API, Stripe)
+- [ ] Backup automático do MySQL criptografado (dump + gpg + envio S3/SCP)
+- [x] Content-Security-Policy headers no middleware SecurityHeaders
+- [ ] Log de auditoria para operações sensíveis (excluir contato, cancelar campanha, upgrade assinatura)
+
+#### Funcionais
 - [ ] Notificações por e-mail ao concluir campanha
 - [x] Exportar CSV de contatos (API + web, com BOM, filtros, 7 testes)
 - [ ] Exportar CSV de mensagens
