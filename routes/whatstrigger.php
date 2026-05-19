@@ -51,8 +51,9 @@ Route::prefix('whatstrigger')->name('wt.api.')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
 
         // ── Contatos ──────────────────────────────────────────────────────────
-        Route::apiResource('contacts', ContactController::class);
+        Route::get('contacts/export', [ContactController::class, 'export']);
         Route::post('contacts/import', [ContactController::class, 'import']);
+        Route::apiResource('contacts', ContactController::class);
 
         // ── Campanhas ─────────────────────────────────────────────────────────
         Route::apiResource('campaigns', CampaignController::class);

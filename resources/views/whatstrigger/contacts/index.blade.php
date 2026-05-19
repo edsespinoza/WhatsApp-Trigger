@@ -32,6 +32,9 @@
                 <a href="{{ route('wt.contacts.create') }}" class="btn btn-sm btn-success">
                     <i class="bi bi-plus-lg me-1"></i> Adicionar Contato
                 </a>
+                <a href="{{ route('wt.contacts.export') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-download me-1"></i> Exportar CSV
+                </a>
             </div>
         </div>
     </div>

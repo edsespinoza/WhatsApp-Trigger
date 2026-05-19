@@ -39,6 +39,7 @@ Route::prefix('whatstrigger')->name('wt.')->group(function () {
         Route::get('contacts/create', [WebController::class, 'contactsCreate'])->name('contacts.create');
         Route::post('contacts', [WebController::class, 'contactsStore'])->name('contacts.store');
         Route::delete('contacts/{contact}', [WebController::class, 'contactsDestroy'])->name('contacts.destroy');
+        Route::get('contacts/export', [WebController::class, 'contactsExport'])->name('contacts.export');
 
         // Campanhas
         Route::get('campaigns', [WebController::class, 'campaignsIndex'])->name('campaigns.index');

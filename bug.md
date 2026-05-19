@@ -6,7 +6,7 @@
 
 ## Estado atual
 
-Projeto funcional em Docker. **65 testes passando (107 asserções).**
+Projeto funcional em Docker. **72 testes passando (130 asserções).**
 
 ### O que está pronto
 
@@ -30,7 +30,8 @@ Projeto funcional em Docker. **65 testes passando (107 asserções).**
 ### Pendências / Melhorias futuras
 
 - [ ] Notificações por e-mail ao concluir campanha
-- [ ] Exportar CSV de contatos e mensagens
+- [x] Exportar CSV de contatos (API + web, com BOM, filtros, 7 testes)
+- [ ] Exportar CSV de mensagens
 - [ ] Dashboard com gráficos (Chart.js)
 - [ ] Histórico de alterações nas campanhas
 - [ ] Cache Redis para consultas frequentes

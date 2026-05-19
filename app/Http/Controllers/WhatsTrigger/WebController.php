@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WebController extends Controller
 {
@@ -195,6 +196,40 @@ class WebController extends Controller
 
         return redirect()->route('wt.contacts.index')
             ->with('success', 'Contato removido.');
+    }
+
+    public function contactsExport(Request $request): StreamedResponse
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="contatos.csv"',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+
+            fputs($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Nome', 'Telefone', 'Tags', 'Opt-in', 'Criado em']);
+
+            Contact::where('user_id', auth()->id())
+                ->orderBy('name')
+                ->chunk(200, function ($contacts) use ($handle) {
+                    foreach ($contacts as $contact) {
+                        fputcsv($handle, [
+                            $contact->name,
+                            $contact->phone,
+                            is_array($contact->tags) ? implode('; ', $contact->tags) : '',
+                            $contact->opted_in ? 'Sim' : 'Não',
+                            $contact->created_at?->format('d/m/Y H:i') ?? '',
+                        ]);
+                    }
+                });
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     // =========================================================================

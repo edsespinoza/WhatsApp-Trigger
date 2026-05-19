@@ -11,6 +11,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ContactController extends Controller
 {
@@ -62,6 +63,46 @@ class ContactController extends Controller
         $contact->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="contatos.csv"',
+        ];
+
+        $callback = function () use ($request) {
+            $handle = fopen('php://output', 'w');
+
+            fputs($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['Nome', 'Telefone', 'Tags', 'Opt-in', 'Criado em']);
+
+            Contact::forUser($request->user()->id)
+                ->when($request->tag, fn ($q) => $q->withTag($request->tag))
+                ->when($request->search, fn ($q) => $q->where(function ($q) use ($request) {
+                    $q->where('name', 'like', "%{$request->search}%")
+                        ->orWhere('phone', 'like', "%{$request->search}%");
+                }))
+                ->when($request->opted_in !== null, fn ($q) => $q->where('opted_in', $request->boolean('opted_in')))
+                ->orderBy('name')
+                ->chunk(200, function ($contacts) use ($handle) {
+                    foreach ($contacts as $contact) {
+                        fputcsv($handle, [
+                            $contact->name,
+                            $contact->phone,
+                            is_array($contact->tags) ? implode('; ', $contact->tags) : '',
+                            $contact->opted_in ? 'Sim' : 'Não',
+                            $contact->created_at?->format('d/m/Y H:i') ?? '',
+                        ]);
+                    }
+                });
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function import(ImportContactsRequest $request): JsonResponse

@@ -86,4 +86,123 @@ class ContactTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    // ── Export CSV ─────────────────────────────────────────────────────────
+
+    public function test_export_returns_csv_with_correct_headers(): void
+    {
+        Contact::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'João Silva',
+            'phone' => '5511999999999',
+        ]);
+
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $response->assertStatus(200)
+            ->assertHeader('Content-Type', 'text/csv; charset=utf-8')
+            ->assertHeader('Content-Disposition', 'attachment; filename="contatos.csv"');
+    }
+
+    public function test_export_csv_contains_contact_data(): void
+    {
+        Contact::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Maria Souza',
+            'phone' => '5511888888888',
+            'tags' => ['aluno', 'vip'],
+            'opted_in' => true,
+        ]);
+
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $response->assertStatus(200);
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('Maria Souza', $content);
+        $this->assertStringContainsString('5511888888888', $content);
+        $this->assertStringContainsString('aluno; vip', $content);
+        $this->assertStringContainsString('Sim', $content);
+    }
+
+    public function test_export_only_contains_user_contacts(): void
+    {
+        Contact::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Meu Contato',
+            'phone' => '5511111111111',
+        ]);
+        Contact::factory()->create([
+            'user_id' => User::factory()->create()->id,
+            'name' => 'Outro Contato',
+            'phone' => '5522222222222',
+        ]);
+
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $response->assertStatus(200);
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('Meu Contato', $content);
+        $this->assertStringNotContainsString('Outro Contato', $content);
+    }
+
+    public function test_export_starts_with_bom(): void
+    {
+        Contact::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Teste',
+            'phone' => '5511000000000',
+        ]);
+
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $content = $response->streamedContent();
+
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $content);
+    }
+
+    public function test_export_has_header_row(): void
+    {
+        Contact::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Teste',
+            'phone' => '5511000000000',
+        ]);
+
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('Nome', $content);
+        $this->assertStringContainsString('Telefone', $content);
+        $this->assertStringContainsString('Criado em', $content);
+    }
+
+    public function test_export_empty_returns_csv_with_only_header(): void
+    {
+        $response = $this->withToken($this->token)
+            ->get('/api/whatstrigger/contacts/export');
+
+        $response->assertStatus(200);
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('Nome', $content);
+        $this->assertStringContainsString('Telefone', $content);
+        $this->assertStringContainsString('Criado em', $content);
+        $lines = explode("\n", trim($content));
+        $this->assertCount(1, $lines); // header only (BOM is prepended to header)
+    }
+
+    public function test_export_unauthenticated_request_is_rejected(): void
+    {
+        $response = $this->getJson('/api/whatstrigger/contacts/export');
+
+        $response->assertStatus(401);
+    }
 }
